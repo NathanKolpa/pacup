@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
+use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
@@ -7,7 +8,7 @@ use pacup::files::get_packagelist_file_path;
 
 enum CliError {
     NoPackagelistFile,
-    OpenPackagelistError(std::io::Error),
+    OpenPackagelistError { path: PathBuf, error: std::io::Error },
 }
 
 impl Debug for CliError {
@@ -19,8 +20,8 @@ impl Debug for CliError {
                 writeln!(f, "\t$HOME/.packagelist")?;
                 write!(f, "\t/etc/pacup/packagelist")?;
             }
-            CliError::OpenPackagelistError(e) => {
-                write!(f, "Cannot open packagelist file [{e}]")?;
+            CliError::OpenPackagelistError { error, path } => {
+                write!(f, "Cannot open packagelist file {} ({error})", path.display())?;
             }
         }
 
@@ -43,8 +44,8 @@ fn main() -> Result<(), CliError> {
 
     let packagelist_file = File::options()
         .read(true)
-        .open(packagelist_path)
-        .map_err(|e| CliError::OpenPackagelistError(e))?;
+        .open(&packagelist_path)
+        .map_err(|e| CliError::OpenPackagelistError { error: e, path: packagelist_path })?;
 
     Ok(())
 }
