@@ -8,6 +8,7 @@ use pacup::paclist::{PackageLineKind, PackageListReader};
 use pacup::pacman::Pacman;
 
 #[derive(Parser)]
+#[command(author, version)]
 #[command(about = "Synchronise packages between packagelist and pacman")]
 struct Cli {
     /// Print out the packages that would be installed without actually installing
