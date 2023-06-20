@@ -33,7 +33,7 @@ impl Pacman {
         str_buffer: &'a mut String,
     ) -> Result<HashSet<&'a str>, PacmanError> {
         let child = Command::new(self.binary)
-            .arg("-Qnq")
+            .arg("-Qq")
             .stderr(Stdio::inherit())
             .stdin(Stdio::inherit())
             .stdout(Stdio::piped())
