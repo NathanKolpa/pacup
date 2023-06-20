@@ -1,14 +1,8 @@
+use crate::errors::{PackageLineParseError, PackageListError};
+use std::collections::HashSet;
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-
-#[derive(Debug)]
-pub enum PackageListError {
-    ReadFileError(std::io::Error),
-    ExpectedPackageType,
-    UnknownPackageType(String),
-    ExpectedPackageName,
-    UnexpectedString(String),
-}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PackageLineKind {
@@ -38,7 +32,7 @@ impl PackageLine {
         &self.line[self.name_start..=self.name_end]
     }
 
-    fn parse(&mut self) -> Result<bool, PackageListError> {
+    fn parse(&mut self) -> Result<bool, PackageLineParseError> {
         enum ParseState {
             Kind,
             Whitespace,
@@ -70,7 +64,9 @@ impl PackageLine {
                     self.kind = match char {
                         '+' => PackageLineKind::Package,
                         '*' => PackageLineKind::Aur,
-                        _ => return Err(PackageListError::UnknownPackageType(char.to_string())),
+                        _ => {
+                            return Err(PackageLineParseError::UnknownPackageType(char.to_string()))
+                        }
                     };
 
                     state = ParseState::Whitespace;
@@ -84,7 +80,7 @@ impl PackageLine {
                 }
                 ParseState::End => {
                     if !char.is_whitespace() {
-                        return Err(PackageListError::UnexpectedString(char.to_string()));
+                        return Err(PackageLineParseError::UnexpectedString(char.to_string()));
                     }
                 }
                 _ => {}
@@ -97,9 +93,9 @@ impl PackageLine {
                     return Ok(false);
                 }
 
-                return Err(PackageListError::ExpectedPackageType);
+                return Err(PackageLineParseError::ExpectedPackageType);
             }
-            ParseState::Whitespace => return Err(PackageListError::ExpectedPackageName),
+            ParseState::Whitespace => return Err(PackageLineParseError::ExpectedPackageName),
             _ => {}
         }
 
@@ -114,6 +110,7 @@ impl PackageLine {
 pub struct PackageListReader {
     file: BufReader<File>,
     line_buffer: PackageLine,
+    current_line: usize,
 }
 
 impl PackageListReader {
@@ -121,6 +118,7 @@ impl PackageListReader {
         Self {
             file: BufReader::new(file),
             line_buffer: PackageLine::empty(),
+            current_line: 0,
         }
     }
 
@@ -130,6 +128,7 @@ impl PackageListReader {
 
             line.clear();
             let read_result = self.file.read_line(line);
+            self.current_line += 1;
 
             match read_result {
                 Ok(0) => return None,
@@ -139,11 +138,32 @@ impl PackageListReader {
 
             match self.line_buffer.parse() {
                 Ok(false) => continue,
-                Err(err) => return Some(Err(err)),
+                Err(err) => {
+                    return Some(Err(PackageListError::LineParseError(
+                        self.current_line,
+                        err,
+                    )))
+                }
                 _ => {}
             }
 
             return Some(Ok(&self.line_buffer));
+        }
+    }
+
+    pub fn next_line_not_in_set(
+        &mut self,
+        set: &HashSet<&str>,
+    ) -> Option<Result<&PackageLine, PackageListError>> {
+        loop {
+            let line = match self.next_line()? {
+                Ok(l) => l,
+                Err(e) => return Some(Err(e)),
+            };
+
+            if !set.contains(line.name()) {
+                return Some(Ok(&self.line_buffer));
+            }
         }
     }
 }

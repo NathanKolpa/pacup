@@ -3,48 +3,18 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use pacup::errors::CliError;
 
 use pacup::files::get_packagelist_file_path;
-
-enum CliError {
-    NoPackagelistFile,
-    OpenPackagelistError {
-        path: PathBuf,
-        error: std::io::Error,
-    },
-}
-
-impl Debug for CliError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CliError::NoPackagelistFile => {
-                writeln!(
-                    f,
-                    "No packagelist file found, tried the following paths (in order): "
-                )?;
-                writeln!(f, "\t$XDG_CONFIG_HOME/pacup/packagelist")?;
-                writeln!(f, "\t$HOME/.packagelist")?;
-                write!(f, "\t/etc/pacup/packagelist")?;
-            }
-            CliError::OpenPackagelistError { error, path } => {
-                write!(
-                    f,
-                    "Cannot open packagelist file {} ({error})",
-                    path.display()
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-}
+use pacup::paclist::{PackageLine, PackageLineKind, PackageListReader};
+use pacup::pacman::Pacman;
 
 #[derive(Parser)]
 #[command(about = "Synchronise packages between packagelist and pacman")]
 struct Cli {
-    /// Print the difference between the host packages and the packagelist
-    #[arg(short, long)]
-    diff: bool,
+    /// Print out the packages that would be installed without actually installing
+    #[arg(long)]
+    dry_run: bool,
 }
 
 fn main() -> Result<(), CliError> {
@@ -60,5 +30,45 @@ fn main() -> Result<(), CliError> {
             path: packagelist_path,
         })?;
 
-    Ok(())
+    let mut pacman = Pacman::new();
+    pacman.fetch_user_status();
+
+    let mut reader = PackageListReader::new(packagelist_file);
+
+    let mut current_packages_buffer = String::new();
+    let current_packages = pacman
+        .fetch_all_installed_packages(&mut current_packages_buffer)
+        .map_err(|e| CliError::FetchPackagesError(e))?;
+
+    let mut transaction = pacman.begin_transaction();
+
+    while let Some(line) = reader.next_line_not_in_set(&current_packages) {
+        let line = line.map_err(|e| CliError::ReadPackagelistError(e))?;
+        transaction.add_package(line.name().to_string());
+
+        match line.kind() {
+            PackageLineKind::Aur => transaction.make_aur_transaction(),
+            _ => {}
+        }
+    }
+
+    if transaction.is_empty() {
+        eprintln!("All packages installed, there is nothing to do!");
+        return Ok(());
+    }
+    eprintln!(
+        "Installing {} missing package(s)",
+        transaction.missing_package_count()
+    );
+    eprintln!("{transaction:?}");
+
+    if cli.dry_run {
+        for package in transaction.iter_packages() {
+            println!("{package}");
+        }
+
+        Ok(())
+    } else {
+        Err(CliError::InstallError(transaction.commit()))
+    }
 }
