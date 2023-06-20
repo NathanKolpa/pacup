@@ -8,20 +8,30 @@ use pacup::files::get_packagelist_file_path;
 
 enum CliError {
     NoPackagelistFile,
-    OpenPackagelistError { path: PathBuf, error: std::io::Error },
+    OpenPackagelistError {
+        path: PathBuf,
+        error: std::io::Error,
+    },
 }
 
 impl Debug for CliError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CliError::NoPackagelistFile => {
-                writeln!(f, "No packagelist file found, tried the following paths (in order): ")?;
+                writeln!(
+                    f,
+                    "No packagelist file found, tried the following paths (in order): "
+                )?;
                 writeln!(f, "\t$XDG_CONFIG_HOME/pacup/packagelist")?;
                 writeln!(f, "\t$HOME/.packagelist")?;
                 write!(f, "\t/etc/pacup/packagelist")?;
             }
             CliError::OpenPackagelistError { error, path } => {
-                write!(f, "Cannot open packagelist file {} ({error})", path.display())?;
+                write!(
+                    f,
+                    "Cannot open packagelist file {} ({error})",
+                    path.display()
+                )?;
             }
         }
 
@@ -45,7 +55,10 @@ fn main() -> Result<(), CliError> {
     let packagelist_file = File::options()
         .read(true)
         .open(&packagelist_path)
-        .map_err(|e| CliError::OpenPackagelistError { error: e, path: packagelist_path })?;
+        .map_err(|e| CliError::OpenPackagelistError {
+            error: e,
+            path: packagelist_path,
+        })?;
 
     Ok(())
 }
