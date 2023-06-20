@@ -1,12 +1,10 @@
-use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use pacup::errors::CliError;
 
 use pacup::files::get_packagelist_file_path;
-use pacup::paclist::{PackageLine, PackageLineKind, PackageListReader};
+use pacup::paclist::{PackageLineKind, PackageListReader};
 use pacup::pacman::Pacman;
 
 #[derive(Parser)]

@@ -1,9 +1,8 @@
 use crate::errors::PacmanError;
+use core::fmt::Formatter;
 use std::collections::HashSet;
-use std::ffi::{OsStr, OsString};
-use std::fmt::{Debug, Formatter};
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, ExitStatus, Stdio};
+use std::fmt::Debug;
+use std::process::{Command, Stdio};
 
 pub struct Pacman {
     binary: &'static str,

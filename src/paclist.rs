@@ -1,6 +1,6 @@
 use crate::errors::{PackageLineParseError, PackageListError};
 use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
