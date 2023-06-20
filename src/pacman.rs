@@ -17,7 +17,7 @@ impl Pacman {
         Self {
             aur_binary: "/usr/bin/trizen",
             binary: "/usr/bin/pacman",
-            sudo_binary: "/usr/bin/sudooo",
+            sudo_binary: "/usr/bin/sudo",
             default_to_aur: false,
             is_root: false,
         }
